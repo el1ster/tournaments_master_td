@@ -2,6 +2,7 @@ import sys
 import random
 import os
 import json
+import subprocess
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QLineEdit,
     QLabel, QTextEdit, QInputDialog, QMessageBox, QCheckBox, QScrollArea, QGridLayout, QHBoxLayout, QListWidget
@@ -95,6 +96,16 @@ class TournamentApp(QMainWindow):
         self.scroll_area.setWidget(self.scroll_area_widget)
         left_panel.addWidget(self.scroll_area)
 
+        # Кнопка для открытия файла участников
+        self.open_participants_button = QPushButton("Открыть файл участников")
+        self.open_participants_button.clicked.connect(self.open_participants_file)
+        left_panel.addWidget(self.open_participants_button)
+
+        # Кнопка для обновления списка участников
+        self.refresh_participants_button = QPushButton("Обновить список участников")
+        self.refresh_participants_button.clicked.connect(self.refresh_participants)
+        left_panel.addWidget(self.refresh_participants_button)
+
         main_layout.addLayout(left_panel)
 
         # Центральная панель: основное окно турнира
@@ -139,6 +150,16 @@ class TournamentApp(QMainWindow):
         self.requirements_scroll_area.setWidgetResizable(True)
         self.requirements_scroll_area.setWidget(self.requirements_scroll_area_widget)
         right_panel.addWidget(self.requirements_scroll_area)
+
+        # Кнопка для открытия файла требований
+        self.open_requirements_button = QPushButton("Открыть файл требований")
+        self.open_requirements_button.clicked.connect(self.open_requirements_file)
+        right_panel.addWidget(self.open_requirements_button)
+
+        # Кнопка для обновления списка требований
+        self.refresh_requirements_button = QPushButton("Обновить список требований")
+        self.refresh_requirements_button.clicked.connect(self.refresh_requirements)
+        right_panel.addWidget(self.refresh_requirements_button)
 
         main_layout.addLayout(right_panel)
 
@@ -241,6 +262,54 @@ class TournamentApp(QMainWindow):
             self.add_requirement_input.clear()
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Произошла ошибка при добавлении требования: {e}")
+
+    def open_participants_file(self):
+        """Открыть файл участников в текстовом редакторе."""
+        try:
+            if not os.path.exists(self.participants_file):
+                with open(self.participants_file, "w", encoding="utf-8") as file:
+                    pass  # Создаём пустой файл, если его нет
+            subprocess.Popen(["notepad", self.participants_file])
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось открыть файл участников: {e}")
+
+    def open_requirements_file(self):
+        """Открыть файл требований в текстовом редакторе."""
+        try:
+            if not os.path.exists(self.requirements_file):
+                with open(self.requirements_file, "w", encoding="utf-8") as file:
+                    pass  # Создаём пустой файл, если его нет
+            subprocess.Popen(["notepad", self.requirements_file])
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось открыть файл требований: {e}")
+
+    def refresh_participants(self):
+        """Обновляет список участников из файла."""
+        try:
+            # Очищаем текущий список участников
+            for i in reversed(range(self.scroll_layout.count())):
+                widget = self.scroll_layout.itemAt(i).widget()
+                if widget:
+                    widget.deleteLater()
+
+            # Перечитываем участников из файла
+            self.load_participants_async()
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось обновить список участников: {e}")
+
+    def refresh_requirements(self):
+        """Обновляет список требований из файла."""
+        try:
+            # Очищаем текущий список требований
+            for i in reversed(range(self.requirements_scroll_layout.count())):
+                widget = self.requirements_scroll_layout.itemAt(i).widget()
+                if widget:
+                    widget.deleteLater()
+
+            # Перечитываем требования из файла
+            self.load_requirements_async()
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось обновить список требований: {e}")
 
     def save_tournament_state(self):
         state = {
