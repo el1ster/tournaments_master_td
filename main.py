@@ -55,18 +55,27 @@ class TournamentApp(QMainWindow):
         self.setWindowTitle("Турнирная схема")
         self.resize(1000, 600)
 
+        # Папки проекта
+        self.base_folder = os.path.join(os.getcwd(), "resources")
+        self.txt_folder = os.path.join(self.base_folder, "txt")
+        self.json_folder = os.path.join(self.base_folder, "json_folder")
+
+        # Создаём папки, если они не существуют
+        os.makedirs(self.txt_folder, exist_ok=True)
+        os.makedirs(self.json_folder, exist_ok=True)
+
+        # Файлы
+        self.participants_file = os.path.join(self.txt_folder, "participants.txt")
+        self.requirements_file = os.path.join(self.txt_folder, "tournament_req.txt")
+        self.current_tournament_file = os.path.join(self.json_folder, "current_tournament.json")
+
+        # Инициализация данных
         self.participants = []
         self.current_round = []
         self.next_round = []
-        self.participants_file = "participants.txt"
-        self.requirements_file = "tournament_req.txt"
-        self.tournaments_folder = "tournaments"
-        self.current_tournament_file = "current_tournament.json"
         self.checkboxes = []
 
-        if not os.path.exists(self.tournaments_folder):
-            os.makedirs(self.tournaments_folder)
-
+        # Инициализация интерфейса
         self.initUI()
         self.load_participants_async()
         self.load_last_tournament()
@@ -127,6 +136,11 @@ class TournamentApp(QMainWindow):
         self.view_reports_button = QPushButton("Просмотр отчетов")
         self.view_reports_button.clicked.connect(self.view_reports)
         center_panel.addWidget(self.view_reports_button)
+
+        # Кнопка очистки текущего турнира
+        self.clear_tournament_button = QPushButton("Очистить текущий турнир")
+        self.clear_tournament_button.clicked.connect(self.clear_current_tournament)
+        center_panel.addWidget(self.clear_tournament_button)
 
         main_layout.addLayout(center_panel)
 
@@ -320,11 +334,11 @@ class TournamentApp(QMainWindow):
             "current_round_number": self.calculate_total_rounds(len(self.participants)) - self.calculate_total_rounds(
                 len(self.current_round)) + 1  # Номер текущего раунда
         }
-        with open(os.path.join(self.tournaments_folder, self.current_tournament_file), "w", encoding="utf-8") as file:
+        with open(self.current_tournament_file, "w", encoding="utf-8") as file:
             json.dump(state, file, ensure_ascii=False, indent=4)
 
     def load_last_tournament(self):
-        tournament_path = os.path.join(self.tournaments_folder, self.current_tournament_file)
+        tournament_path = self.current_tournament_file
         if os.path.exists(tournament_path):
             try:
                 with open(tournament_path, "r", encoding="utf-8") as file:
@@ -333,7 +347,7 @@ class TournamentApp(QMainWindow):
                     self.current_round = state.get("current_round", [])
                     self.next_round = state.get("next_round", [])
                     self.round_display.setText(state.get("round_display", ""))
-                    self.current_round_number = state.get("current_round_number", 0)  # Загружаем номер текущего раунда
+                    self.current_round_number = state.get("current_round_number", 0)
 
                     # Проверка на основе current_round_number
                     if self.current_round_number > 0:
@@ -343,6 +357,23 @@ class TournamentApp(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить состояние турнира: {e}")
 
+    def clear_current_tournament(self):
+        """Удаляет JSON текущего турнира и очищает холст."""
+        try:
+            # Удаляем файл текущего турнира, если он существует
+            if os.path.exists(self.current_tournament_file):
+                os.remove(self.current_tournament_file)
+
+            # Очищаем текстовый холст
+            self.round_display.clear()
+
+            # Выключаем кнопку "Следующий этап"
+            self.next_round_button.setEnabled(False)
+
+            QMessageBox.information(self, "Очистка", "Текущий турнир успешно очищен.")
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось очистить текущий турнир: {e}")
+
     def start_tournament(self):
         try:
             self.participants = [cb.text() for cb in self.checkboxes if cb.isChecked()]
@@ -350,11 +381,7 @@ class TournamentApp(QMainWindow):
                 QMessageBox.warning(self, "Ошибка", "Необходимо выбрать минимум 2 участников!")
                 return
 
-            # Подсчёт уникальных требований
-            total_requirements = self.calculate_requirements(len(self.participants))
-            self.round_display.clear()
-            self.round_display.append(
-                f"Для проведения турнира потребуется {total_requirements} уникальных требований.\n")
+
 
             random.shuffle(self.participants)
             self.next_round_button.setEnabled(True)
@@ -384,6 +411,11 @@ class TournamentApp(QMainWindow):
             num_participants = groups_in_round  # Уменьшаем количество участников для следующего этапа
         return requirements
 
+    def total_requirements(self):
+        # Подсчёт уникальных требований
+        total_requirements = self.calculate_requirements(len(self.participants))
+        return total_requirements
+
     def display_round(self):
         total_rounds = self.calculate_total_rounds(len(self.participants))
         current_round_number = self.calculate_total_rounds(len(self.current_round))
@@ -397,7 +429,8 @@ class TournamentApp(QMainWindow):
         if len(requirements) < len(self.current_round) // 2:
             print(len(self.current_round))
             print(len(requirements))
-            QMessageBox.warning(self, "Ошибка", "Недостаточно требований для всех пар!")
+            total_req = self.total_requirements()
+            QMessageBox.warning(self, "Ошибка", f"Недостаточно требований для всех пар!, Необходимо {total_req} требований ")
             return
 
         random.shuffle(requirements)
